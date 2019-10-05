@@ -11,7 +11,8 @@ func main() {
 	
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", Index)
-	router.HandleFunc("/contacto", Contact)
+	router.HandleFunc("/peliculas", MovieList)
+	router.HandleFunc("/peliculas/{id}", MovieShow)
 
 
 	/*Metodo para que el servidor se levante en el puerto 8080 y 
@@ -30,6 +31,15 @@ func Index(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hola mundo desde mi nuevo servidor web con GO")
 }
 
-func Contact(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Bienvenido a la pagina de Contactos")
+func MovieList(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Listado de Peliculas")
+}
+
+func MovieShow(w http.ResponseWriter, r *http.Request) {
+		//con mux.Vars obtengo TODOS los param que le mando por URL
+		//"params" va a ser un Array Asociativo
+		params := mux.Vars(r)
+		movie_id := params["id"]
+
+		fmt.Fprintf(w, "Has cargado la pelicula numero %s", movie_id)
 }
