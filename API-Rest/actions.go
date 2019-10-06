@@ -7,15 +7,8 @@ import (
 		"encoding/json" //libreria para responder en json
 		"gopkg.in/mgo.v2"	
 //		"gopkg.in/mgo.v2/bson"
+		"log"
 		) 
-
-//Creo un ARRAY GLOBAL 
-var movies = Movies{
-	//debe contener tantas instancias de Movie como desee que tenga el array/slice
-	Movie{"Busqueda implacable", 2013, "Robin Hooper"},
-	Movie{"Buscando a nemo", 2005, "Di caprio"},
-	Movie{"Rapidos y furiosos", 2019, "Toretto"},
-}	
 
 //creo esta var global para reutilizarla cada vez que necesite acceder a la bd
 var collection = getSession().DB("curso_go").C("movies")
@@ -43,8 +36,23 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 func MovieList(w http.ResponseWriter, r *http.Request) {
 
-	//devolvemos un json cuando se solicita acceso a esta URL
-		json.NewEncoder(w).Encode(movies)
+		var results []Movie
+		/*para hacer el find en MONGO 
+		  Bindeamos lo que devuelve la consulta en "results" 
+		  como param puedo mandarle lo mismo que uso para buscar en mongo */
+		err := collection.Find(nil).Sort("-_id").All(&results) 
+		
+		if err != nil {
+			log.Fatal(err)
+		}else{
+			fmt.Println("Resultados: " , results)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200) //Para escribir una Respuesta desde la api. 200 es que funciono ok
+
+		//devolvemos un json cuando se solicita acceso a esta URL
+		json.NewEncoder(w).Encode(results)
 
 }
 
@@ -86,11 +94,14 @@ func MovieAdd(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500) //Fallo
 		return
 	}
-	//convierto a json el movie_data
-	json.NewEncoder(w).Encode(movie_data)
 	//escribo una respuesta Http
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200) //Para escribir una Respuesta desde la api. 200 es que funciono ok
+
+	//convierto a json el movie_data
+	/*ES IMPORTANTE PONERLA COMO ULTIMA INSTRUCCION
+	  PARA QUE SE TERMINE DEVOLVIENDO UN JSON	*/
+	json.NewEncoder(w).Encode(movie_data)
 
 
 }
