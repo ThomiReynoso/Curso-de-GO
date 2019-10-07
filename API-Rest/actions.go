@@ -6,8 +6,9 @@ import (
 		"github.com/gorilla/mux"
 		"encoding/json" //libreria para responder en json
 		"gopkg.in/mgo.v2"	
-//		"gopkg.in/mgo.v2/bson"
+		"gopkg.in/mgo.v2/bson"
 		"log"
+		
 		) 
 
 //creo esta var global para reutilizarla cada vez que necesite acceder a la bd
@@ -62,7 +63,33 @@ func MovieShow(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		movie_id := params["id"]
 
-		fmt.Fprintf(w, "Has cargado la pelicula numero %s", movie_id)
+		//Verifico si el dato es un objeto hexa para que acepte el json
+		if !bson.IsObjectIdHex(movie_id) {
+			w.WriteHeader(404) //fallo
+			return
+		}
+
+		//codifico a json con bison la var (viene como string)
+		//convierto a object id
+		oid := bson.ObjectIdHex(movie_id)
+
+		fmt.Println("movie_id: ", movie_id)
+		fmt.Println("oid: ", oid)
+
+		results := Movie{}
+		//bindeo lo que traigo de la base a "results"
+		err := collection.FindId(oid).One(&results)
+
+		fmt.Println("results: ", results)
+
+		if err != nil {
+			w.WriteHeader(404) //fallo
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200) 
+		json.NewEncoder(w).Encode(results) //devolvemos un json cuando se solicita acceso a esta URL
 }
 
 func MovieAdd(w http.ResponseWriter, r *http.Request) {
