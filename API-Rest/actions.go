@@ -11,10 +11,6 @@ import (
 		
 		) 
 
-//creo esta var global para reutilizarla cada vez que necesite acceder a la bd
-var collection = getSession().DB("curso_go").C("movies")
-
-//Devuelve un objeto de la LIBRERIA mgo.session
 func getSession() *mgo.Session {
 
 	//Estblezco Conexion con BD Mongo. En vez de localhost puedo poner la ip (127.0.0.1)
@@ -27,6 +23,31 @@ func getSession() *mgo.Session {
 
 	return session
 }
+
+//Para devolver un unico dato Movie
+func responseMovie(w http.ResponseWriter, status int, results Movie) {
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status) //Para escribir una Respuesta desde la api. 200 es que funciono ok
+
+	//devolvemos un json cuando se solicita acceso a esta URL
+	json.NewEncoder(w).Encode(results)
+
+}
+
+//Para devolver arrays de Movie
+func responseMovies(w http.ResponseWriter, status int, results []Movie) {
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status) 
+	json.NewEncoder(w).Encode(results)
+
+}
+
+//creo esta var global para reutilizarla cada vez que necesite acceder a la bd
+var collection = getSession().DB("curso_go").C("movies")
+
+//Devuelve un objeto de la LIBRERIA mgo.session
 
 func Index(w http.ResponseWriter, r *http.Request) {
 		//Aca pongo lo que devuelve el server en esta ruta
@@ -46,14 +67,11 @@ func MovieList(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal(err)
 		}else{
-			fmt.Println("Resultados: " , results)
+			fmt.Println("Resultados en MovieList: " , results)
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200) //Para escribir una Respuesta desde la api. 200 es que funciono ok
-
-		//devolvemos un json cuando se solicita acceso a esta URL
-		json.NewEncoder(w).Encode(results)
+		
+		//devuelvo un array	
+		responseMovies(w, 200, results )
 
 }
 
@@ -73,23 +91,23 @@ func MovieShow(w http.ResponseWriter, r *http.Request) {
 		//convierto a object id
 		oid := bson.ObjectIdHex(movie_id)
 
-		fmt.Println("movie_id: ", movie_id)
-		fmt.Println("oid: ", oid)
+	//	fmt.Println("movie_id: ", movie_id)
+	//	fmt.Println("oid: ", oid)
 
 		results := Movie{}
 		//bindeo lo que traigo de la base a "results"
 		err := collection.FindId(oid).One(&results)
 
-		fmt.Println("results: ", results)
+	//	fmt.Println("results: ", results)
 
 		if err != nil {
 			w.WriteHeader(404) //fallo
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(200) 
-		json.NewEncoder(w).Encode(results) //devolvemos un json cuando se solicita acceso a esta URL
+		//Aca necesito devolver un solo dato
+		responseMovie(w, 200, results )
+
 }
 
 func MovieAdd(w http.ResponseWriter, r *http.Request) {
@@ -106,8 +124,6 @@ func MovieAdd(w http.ResponseWriter, r *http.Request) {
 
 	//se usa para cerrar/limpiar la funcionalidad de algo
 	defer r.Body.Close()
-
-
 
 	//Inserto en la BD, en la coleccion Movies, la var movie_data (la cual contiene lo decodificado del json)
 	/*comento sentencia debajo porque es mas optimo hacer una UNICA var global en vez de esto
@@ -128,8 +144,65 @@ func MovieAdd(w http.ResponseWriter, r *http.Request) {
 	//convierto a json el movie_data
 	/*ES IMPORTANTE PONERLA COMO ULTIMA INSTRUCCION
 	  PARA QUE SE TERMINE DEVOLVIENDO UN JSON	*/
-	json.NewEncoder(w).Encode(movie_data)
+	responseMovie(w, 200, movie_data )
 
 
 }
 
+
+func MovieUpdate(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		movie_id := params["id"]
+
+		fmt.Println("movie_id", movie_id)
+
+		//Verifico si el dato es un objeto hexa para que acepte el json
+		if !bson.IsObjectIdHex(movie_id) {
+			w.WriteHeader(404) //fallo
+			return
+		}
+
+		//codifico a json con bison la var (viene como string)
+		//convierto a object id
+		oid := bson.ObjectIdHex(movie_id)
+		
+		//obtengo el objeto json que llega por el body
+		decoder := json.NewDecoder(r.Body)
+		
+		var movie_data Movie
+		err := decoder.Decode(&movie_data)
+		fmt.Println("&movie_data", &movie_data)
+
+		if err != nil {
+			//si puede decodificarlo...
+			panic(err) //muestra por consola el error
+			w.WriteHeader(500)
+			return
+		}
+
+		fmt.Println("oid", oid)
+	
+		//Dejamos de leer lo que hay en Body y lo limpiamos
+		defer r.Body.Close()
+
+		//Obtengo el Documento (Modelo) del id que estoy queriendo actualizar
+		document := bson.M{"_id": oid}
+
+		fmt.Println("oid", oid)
+	
+		//NUEVO dato a impactar en la base, en formato json
+		change := bson.M{"$set": movie_data}
+
+		err = collection.Update(document, change)
+		fmt.Println("err", err)
+
+
+		if err != nil {
+			w.WriteHeader(404) //fallo
+			return
+		}
+
+		//Aca necesito devolver un solo dato
+		responseMovie(w, 200, movie_data )
+
+}
